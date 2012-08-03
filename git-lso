@@ -5,6 +5,7 @@
 
 import os
 import sys
+import re
 import zlib
 import getopt
 
@@ -18,6 +19,8 @@ class GitRepo(object):
 		self.error = None
 		self.repo = repo
 		self.bare = bare
+		self.objects = []
+		self.object_dirs = []
 		
 		if bare:
 			self.git_dir = repo
@@ -55,6 +58,36 @@ class GitRepo(object):
 			return False
 		
 		return True
+	
+	def populate_objects(self):
+		"""Gather a list of objects"""
+		
+		# Don't populate if already done
+		if self.objects:
+			return
+		
+		self.object_dirs = []
+		dir_regex = re.compile("^[0-9a-f]{2}$")
+		file_regex = re.compile("^[0-9a-f]{38}$")
+		
+		# Get list of object dirs
+		for o_dir in os.listdir(self.objects_root):
+			o_dir_path = os.path.join(self.objects_root, o_dir)
+			if re.match(dir_regex, o_dir) and os.path.isdir(o_dir_path):
+				# Looks like an object dir so far
+				self.object_dirs.append((o_dir, o_dir_path))
+		
+		# Get list of object files
+		for o_dir, o_dir_path in self.object_dirs:
+			for o_file in os.listdir(o_dir_path):
+				o_file_path = os.path.join(o_dir_path, o_file)
+				if re.match(file_regex, o_file) and os.path.isfile(o_file_path):
+					# Looks like an object file so far
+					self.objects.append({
+						'o_id': o_dir + o_file,
+						'o_path': o_file_path,
+						#'o_relpath': o_dir + "/" + o_file
+					})
 
 
 def sysexit(msg, excode=70):
@@ -71,6 +104,9 @@ def process_repo(repo):
 		if not repo.is_bare():
 			errmsg += "\n\nMaybe you forgot --bare?"
 		sysexit(errmsg, 65)
+	
+	# Populate objects
+	repo.populate_objects()
 
 
 def usage(errmsg=None):
