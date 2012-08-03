@@ -90,6 +90,25 @@ class GitRepo(object):
 					})
 
 
+def read_file_x(filename, blob=False):
+	"""Open a file, read it and return its content.
+	
+	Returns the content as a list or as a blob.
+	Raises IOError on open or read error.
+	"""
+	
+	fp = open(filename, "r")
+	try:
+		if blob:
+			data = fp.read()
+		else:
+			data = fp.readlines()
+	finally:
+		fp.close()
+	
+	return data
+
+
 def sysexit(msg, excode=70):
 	sys.stderr.write("%s: %s\n" % (sys.argv[0], msg))
 	sys.exit(excode)
