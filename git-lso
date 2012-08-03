@@ -6,6 +6,7 @@
 import os
 import sys
 import re
+import sha
 import zlib
 import getopt
 
@@ -88,6 +89,77 @@ class GitRepo(object):
 						'o_path': o_file_path,
 						#'o_relpath': o_dir + "/" + o_file
 					})
+	
+	def verify_objects(self):
+		"""List gathered objects"""
+		
+		if not self.objects:
+			sys.stderr.write("No objects.\n")
+			return
+		
+		for obj in self.objects:
+			print "file: %s" % obj['o_path']
+			print "\tid: %s" % obj['o_id']
+			
+			try:
+				obj_zdata = read_file_x(obj['o_path'], blob=True)
+			except IOError as e:
+				print "\tERROR: IOError: [Errno %s] %s" % (e.errno, e.strerror)
+				continue
+			
+			print "\tverify(read): OK"
+			
+			try:
+				obj_xdata = zlib.decompress(obj_zdata)
+			except zlib.error:
+				print "\tERROR: zlib decompress failed\n\n"
+				continue
+			
+			print "\tverify(zlib): OK"
+			
+			try:
+				obj_hdr, obj_data = obj_xdata.split("\x00", 1)
+			except ValueError:
+				print "\tERROR: failed to extract header\n\n"
+				continue
+			
+			print "\tverify(fmt1): OK"
+			
+			try:
+				obj_data_type, obj_data_len = obj_hdr.split(" ")
+			except ValueError:
+				print "\tERROR: failed to split header\n\n"
+				continue
+			
+			print "\tverify(fmt2): OK"
+			
+			if not obj_data_type in ('blob', 'tree', 'commit', 'tag'):
+				print "\tERROR: invalid data type: %s\n\n" % obj_data_type
+				continue
+			
+			print "\tverify(fmt3): OK"
+			
+			if not obj_data_len.isdigit():
+				print "\tERROR: invalid data length: %s\n\n" % obj_data_len
+				continue
+			
+			print "\tverify(fmt4): OK"
+			
+			if int(obj_data_len) != len(obj_data):
+				print "\tERROR: data length mismatch: %s vs %s\n\n" % \
+					(int(obj_data_len), len(obj_data))
+				continue
+			
+			print "\tverify(size): OK"
+			
+			vrf_o_id = sha.sha(obj_data_type + " " + obj_data_len + 
+				"\x00" + obj_data).hexdigest()
+			
+			if vrf_o_id != obj['o_id']:
+				print "\tERROR: invalid checksum: %s\n\n" % vrf_o_id
+				continue
+			
+			print "\tverify(sha1): OK"
 
 
 def read_file_x(filename, blob=False):
@@ -126,6 +198,7 @@ def process_repo(repo):
 	
 	# Populate objects
 	repo.populate_objects()
+	repo.verify_objects()
 
 
 def usage(errmsg=None):
