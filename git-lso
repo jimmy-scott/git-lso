@@ -1,0 +1,121 @@
+#!/usr/bin/python
+
+# Copyright (C) 2012 Jimmy Scott #jimmy#inet-solutions#be#. Belgium.
+# All rights reserved.
+
+import os
+import sys
+import zlib
+import getopt
+
+
+class GitRepo(object):
+	"""Holds git repository data"""
+	
+	def __init__(self, repo, bare=False):
+		"""Init variables"""
+		
+		self.error = None
+		self.repo = repo
+		self.bare = bare
+		
+		if bare:
+			self.git_dir = repo
+		else:
+			self.git_dir = os.path.join(repo, ".git")
+		
+		self.objects_root = os.path.join(self.git_dir, "objects")
+	
+	def is_bare(self):
+		"""Return self.bare"""
+		
+		return self.bare
+	
+	def get_error(self):
+		"""Return self.error"""
+		
+		return self.error
+	
+	def reset_error(self):
+		"""Reset the error status"""
+		
+		self.error = None
+	
+	def verify(self):
+		"""Verify if self.objects_root exists and is a directory"""
+		
+		if not os.path.exists(self.objects_root):
+			self.error = "no such directory: %s" % \
+				self.objects_root
+			return False
+		
+		if not os.path.isdir(self.objects_root):
+			self.error = "not a directory: %s" % \
+				self.objects_root
+			return False
+		
+		return True
+
+
+def sysexit(msg, excode=70):
+	sys.stderr.write("%s: %s\n" % (sys.argv[0], msg))
+	sys.exit(excode)
+
+
+def process_repo(repo):
+	"""TODO"""
+	
+	# Verify it looks like a valid repo
+	if not repo.verify():
+		errmsg = "%s" % repo.get_error()
+		if not repo.is_bare():
+			errmsg += "\n\nMaybe you forgot --bare?"
+		sysexit(errmsg, 65)
+
+
+def usage(errmsg=None):
+	if errmsg is not None:
+		sys.stderr.write("%s: %s\n" % (sys.argv[0], errmsg))
+	sys.stderr.write("usage: %s [--bare] [<git-repo-root>]\n" %
+		sys.argv[0])
+	sys.exit(64)
+
+
+def main():
+	opts = "h"
+	long_opts = ['help', 'bare']
+	bare = False
+	
+	# Get options and arguments
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], opts, long_opts)
+	except getopt.GetoptError, error:
+		usage(error)
+	
+	# Process options
+	for opt, arg in opts:
+		if opt == "--bare":
+			bare = True
+		elif opt in ('-h', '--help'):
+			usage()
+		else:
+			assert False, "unhandled option"
+	
+	# Process arguments
+	if args:
+		repo = args.pop(0)
+	else:
+		repo = os.curdir
+	
+	# No args should be left
+	if args:
+		usage("too many arguments: %s" % str.join(', ', args))
+	
+	# Create object and process repo
+	repo = GitRepo(repo, bare)
+	process_repo(repo)
+
+
+if __name__ == "__main__":
+	main()
+
