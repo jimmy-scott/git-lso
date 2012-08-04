@@ -162,9 +162,8 @@ class GitRepo(object):
 	def print_objects(self):
 		"""Print verified objects"""
 		
-		dfmt = "  %-15s %-s\n"
+		sfmt = "  %-15s %-s\n"
 		vfmt = "  verify %-8s "
-		cfmt = "  compression:    %-3s\n"
 		_max_verbose = self._max_verbose
 		
 		if not self.objects:
@@ -179,7 +178,7 @@ class GitRepo(object):
 			if self.show_compression and \
 				(obj.z_data_size is not None) and\
 				(obj.x_data_size is not None):
-				c_ratio = 100 * obj.z_data_size / obj.x_data_size
+				c_ratio = str(100 * obj.z_data_size / obj.x_data_size) + "%"
 			
 			# Shortcut for non-verbose mode
 			if self.verbose == 0:
@@ -188,7 +187,7 @@ class GitRepo(object):
 				
 				# Print compression
 				if c_ratio is not None:
-					self._vprint(0, 0, "%3s%% " % c_ratio)
+					self._vprint(0, 0, "%4s " % c_ratio)
 				
 				# Print status
 				if obj.v_all:
@@ -199,34 +198,24 @@ class GitRepo(object):
 			
 			### Only verbose mode passes the section below
 			
-			# Print object id and object path
+			# Print object id
 			self._vprint(1, _max_verbose, "id: %s\n" % obj.id)
-			self._vprint(3, _max_verbose, "path: %s\n" % obj.path)
 			
-			# Show size of compressed object
-			if obj.z_data_size is not None:
-				self._vprint(3, _max_verbose, dfmt %
-					("zdata size:", obj.z_data_size))
+			# Show steps
+			s_steps = (
+				(obj.path, "path", 3, _max_verbose),
+				(obj.z_data_size, "zdata size", 3, _max_verbose),
+				(obj.x_data_size, "xdata size", 3, _max_verbose),
+				(c_ratio, "compression", 1, _max_verbose),
+				(obj.h_data_type, "obj type", 3, _max_verbose),
+				(obj.h_data_size, "obj size", 3, _max_verbose),
+			)
 			
-			# Show size of uncompressed object
-			if obj.x_data_size is not None:
-				self._vprint(3, _max_verbose, dfmt %
-					("xdata size:", obj.x_data_size))
-			
-			# Show compression ratio = 100 * COMP / UNCOMP
-			if c_ratio is not None:
-				self._vprint(1, _max_verbose, cfmt %
-					(str(c_ratio) + "%"))
-			
-			# Show object type
-			if obj.h_data_type is not None:
-				self._vprint(3, _max_verbose, dfmt %
-					("obj type:", obj.h_data_type))
-			
-			# Show object size
-			if obj.h_data_size is not None:
-				self._vprint(3, _max_verbose, dfmt %
-					("obj size:", obj.h_data_size))
+			# Print step data if needed
+			for s_opt, s_name, s_min, s_max in s_steps:
+				if s_opt is not None:
+					self._vprint(s_min, s_max, sfmt %
+						(s_name + ":", s_opt))
 			
 			# Verify steps
 			v_steps = (
@@ -306,7 +295,7 @@ class GitRepo(object):
 				obj.v_error = "invalid data size: %s" % obj_data_len
 				continue
 			obj.v_fmt4 = True
-			obj.h_data_size = obj_data_size
+			obj.h_data_size = int(obj_data_size)
 			
 			# Verify size
 			if int(obj_data_size) != len(obj_data):
@@ -321,7 +310,7 @@ class GitRepo(object):
 			
 			# Verify checksum
 			if vrf_id != obj.id:
-				obj.v_error = "ERROR: invalid checksum: %s" % vrf_id
+				obj.v_error = "invalid checksum: %s" % vrf_id
 				continue
 			obj.v_sha1 = True
 			
