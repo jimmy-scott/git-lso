@@ -11,6 +11,37 @@ import zlib
 import getopt
 
 
+class GitLooseObject(object):
+	"""Holds git object data"""
+	
+	id = None
+	path = None
+	
+	# Compressed object
+	z_data_size = None
+	
+	# Decompressed object
+	x_data_size = None
+	
+	# Header data
+	h_data_type = None
+	h_data_size = None
+	
+	# Verification error
+	v_error = None
+	
+	# Verification data
+	v_fmt1 = v_fmt2 = v_fmt3 = v_fmt4 = False
+	v_read = v_zlib = v_size = v_sha1 = False
+	
+	# Optimize non-verbose mode
+	v_all = False
+	
+	def __init__(self, id=None, path=None):
+		self.id = id
+		self.path = path
+
+
 class GitRepo(object):
 	"""Holds git repository data"""
 	
@@ -107,11 +138,12 @@ class GitRepo(object):
 				o_file_path = os.path.join(o_dir_path, o_file)
 				if re.match(file_regex, o_file) and os.path.isfile(o_file_path):
 					# Looks like an object file so far
-					self.objects.append({
-						'o_id': o_dir + o_file,
-						'o_path': o_file_path,
-						#'o_relpath': o_dir + "/" + o_file
-					})
+					self.objects.append(
+						GitLooseObject(
+							id = o_dir + o_file,
+							path = o_file_path
+						)
+					)
 	
 	def list_objects(self):
 		"""List gathered objects"""
@@ -123,12 +155,12 @@ class GitRepo(object):
 			return
 		
 		for obj in self.objects:
-			self._vprint(0, 0, "%s\n" % obj['o_id'])
-			self._vprint(1, _max_verbose, "id: %s\n" % obj['o_id'])
-			self._vprint(2, _max_verbose, "  path: %s\n" % obj['o_path'])
+			self._vprint(0, 0, "%s\n" % obj.id)
+			self._vprint(1, _max_verbose, "id: %s\n" % obj.id)
+			self._vprint(2, _max_verbose, "  path: %s\n" % obj.path)
 	
-	def verify_objects(self):
-		"""List and verify gathered objects"""
+	def print_objects(self):
+		"""Print verified objects"""
 		
 		dfmt = "  %-15s %-s\n"
 		vfmt = "  verify %-8s "
@@ -140,116 +172,161 @@ class GitRepo(object):
 			return
 		
 		for obj in self.objects:
-			# Print object id and object path
-			self._vprint(0, 0, "%s " % obj['o_id'])
-			self._vprint(1, _max_verbose, "id: %s\n" % obj['o_id'])
-			self._vprint(3, _max_verbose, "path: %s\n" % obj['o_path'])
+			# Stuff that needs to be calculated
+			c_ratio = None
 			
-			# Verify read
-			self._vprint(1, _max_verbose, vfmt % "read:")
-			try:
-				obj_zdata = read_file_x(obj['o_path'], blob=True)
-			except IOError as e:
-				vmsg = "ERROR: IOError: [Errno %s] %s\n" % (e.errno, e.strerror)
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+			# Calculate compression if possible
+			if self.show_compression and \
+				(obj.z_data_size is not None) and\
+				(obj.x_data_size is not None):
+				c_ratio = 100 * obj.z_data_size / obj.x_data_size
+			
+			# Shortcut for non-verbose mode
+			if self.verbose == 0:
+				# Print id
+				self._vprint(0, 0, "%s " % obj.id)
+				
+				# Print compression
+				if c_ratio is not None:
+					self._vprint(0, 0, "%3s%% " % c_ratio)
+				
+				# Print status
+				if obj.v_all:
+					self._vprint(0, 0, "OK\n")
+				else:
+					self._vprint(0, 0, "ERROR\n")
 				continue
-			self._vprint(1, _max_verbose, "OK\n")
+			
+			### Only verbose mode passes the section below
+			
+			# Print object id and object path
+			self._vprint(1, _max_verbose, "id: %s\n" % obj.id)
+			self._vprint(3, _max_verbose, "path: %s\n" % obj.path)
 			
 			# Show size of compressed object
-			obj_zdata_sz = len(obj_zdata)
-			self._vprint(3, _max_verbose, dfmt % ("zdata size:", obj_zdata_sz))
+			if obj.z_data_size is not None:
+				self._vprint(3, _max_verbose, dfmt %
+					("zdata size:", obj.z_data_size))
+			
+			# Show size of uncompressed object
+			if obj.x_data_size is not None:
+				self._vprint(3, _max_verbose, dfmt %
+					("xdata size:", obj.x_data_size))
+			
+			# Show compression ratio = 100 * COMP / UNCOMP
+			if c_ratio is not None:
+				self._vprint(1, _max_verbose, cfmt %
+					(str(c_ratio) + "%"))
+			
+			# Show object type
+			if obj.h_data_type is not None:
+				self._vprint(3, _max_verbose, dfmt %
+					("obj type:", obj.h_data_type))
+			
+			# Show object size
+			if obj.h_data_size is not None:
+				self._vprint(3, _max_verbose, dfmt %
+					("obj size:", obj.h_data_size))
+			
+			# Verify steps
+			v_steps = (
+				(obj.v_read, "read", 1, _max_verbose),
+				(obj.v_zlib, "zlib", 1, _max_verbose),
+				(obj.v_fmt1, "fmt1", 2, _max_verbose),
+				(obj.v_fmt2, "fmt2", 2, _max_verbose),
+				(obj.v_fmt3, "fmt3", 2, _max_verbose),
+				(obj.v_fmt4, "fmt4", 2, _max_verbose),
+				(obj.v_fmt4, "fmtX", 1, 1),
+				(obj.v_size, "size", 1, _max_verbose),
+				(obj.v_sha1, "sha1", 1, _max_verbose)
+			)
+			
+			# Print step status if needed
+			for v_opt, v_name, v_min, v_max in v_steps:
+				self._vprint(v_min, v_max, vfmt % (v_name + ":"))
+				if v_opt:
+					self._vprint(v_min, v_max, "[OK]\n")
+					continue
+				else:
+					self._vprint(1, _max_verbose, "[EE] " + obj.v_error + "\n")
+					break
+	
+	
+	def verify_objects(self):
+		"""Verify gathered objects"""
+		
+		if not self.objects:
+			return
+		
+		for obj in self.objects:
+			
+			# Verify read
+			try:
+				obj_zdata = read_file_x(obj.path, blob=True)
+			except IOError as e:
+				obj.v_error = "IOError: [Errno %s] %s" % (e.errno, e.strerror)
+				continue
+			obj.v_read = True
+			obj.z_data_size = len(obj_zdata)
 			
 			# Verify zlib
-			self._vprint(1, _max_verbose, vfmt % "zlib:")
 			try:
 				obj_xdata = zlib.decompress(obj_zdata)
 			except zlib.error:
-				vmsg = "ERROR: zlib decompress failed\n"
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+				obj.v_error = "zlib decompress failed"
 				continue
-			self._vprint(1, _max_verbose, "OK\n")
-			
-			# Show size of uncompressed object
-			obj_xdata_sz = len(obj_xdata)
-			self._vprint(3, _max_verbose, dfmt % ("xdata size:", obj_xdata_sz))
-			
-			# Show compression ratio = 100 * COMP / UNCOMP
-			if self.show_compression:
-				ratio = 100 * obj_zdata_sz / obj_xdata_sz
-				self._vprint(0, 0, "%3s%% " % ratio)
-				self._vprint(1, _max_verbose, cfmt % (str(ratio) + "%"))
+			obj.v_zlib = True
+			obj.x_data_size = len(obj_xdata)
 			
 			# Verify format check 1
-			self._vprint(1, 1, vfmt % "fmtx:")
-			self._vprint(2, _max_verbose, vfmt % "fmt1:")
 			try:
 				obj_hdr, obj_data = obj_xdata.split("\x00", 1)
 			except ValueError:
-				vmsg = "ERROR: failed to extract header\n"
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+				obj.v_error = "failed to extract header"
 				continue
-			self._vprint(2, _max_verbose, "OK\n")
+			obj.v_fmt1 = True
 			
 			# Verify format check 2
-			self._vprint(2, _max_verbose, vfmt % "fmt2:")
 			try:
-				obj_data_type, obj_data_len = obj_hdr.split(" ")
+				obj_data_type, obj_data_size = obj_hdr.split(" ")
 			except ValueError:
-				vmsg = "ERROR: failed to split header\n"
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+				obj.v_error = "failed to split header"
 				continue
-			self._vprint(2, _max_verbose, "OK\n")
+			obj.v_fmt2 = True
 			
 			# Verify format check 3
-			self._vprint(2, _max_verbose, vfmt % "fmt3:")
 			if not obj_data_type in ('blob', 'tree', 'commit', 'tag'):
-				vmsg = "ERROR: invalid data type: %s\n" % obj_data_type
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+				obj.v_error = "invalid data type: %s" % obj_data_type
 				continue
-			self._vprint(2, _max_verbose, "OK\n")
+			obj.v_fmt3 = True
+			obj.h_data_type = obj_data_type
 			
-			# Show object type
-			self._vprint(3, _max_verbose, dfmt % ("obj type:", obj_data_type))
-			
-			# Verify format check 4 / final format check
-			self._vprint(2, _max_verbose, vfmt % "fmt4:")
-			if not obj_data_len.isdigit():
-				vmsg = "ERROR: invalid data length: %s\n" % obj_data_len
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+			# Verify format check 4
+			if not obj_data_size.isdigit():
+				obj.v_error = "invalid data size: %s" % obj_data_len
 				continue
-			self._vprint(1, _max_verbose, "OK\n")
-			
-			# Show object size
-			self._vprint(3, _max_verbose, dfmt % ("obj size:", obj_data_len))
+			obj.v_fmt4 = True
+			obj.h_data_size = obj_data_size
 			
 			# Verify size
-			self._vprint(1, _max_verbose, vfmt % "size:")
-			if int(obj_data_len) != len(obj_data):
-				vmsg = "ERROR: data length mismatch: %s vs %s\n" % \
-					(int(obj_data_len), len(obj_data))
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+			if int(obj_data_size) != len(obj_data):
+				obj.v_error = "data size mismatch: %s vs %s" % \
+					(int(obj_data_size), len(obj_data))
 				continue
-			self._vprint(1, _max_verbose, "OK\n")
+			obj.v_size = True
 			
 			# Calculate checksum
-			vrf_o_id = sha.sha(obj_data_type + " " + obj_data_len + 
+			vrf_id = sha.sha(obj_data_type + " " + obj_data_size + 
 				"\x00" + obj_data).hexdigest()
 			
 			# Verify checksum
-			self._vprint(1, _max_verbose, vfmt % "sha1:")
-			if vrf_o_id != obj['o_id']:
-				vmsg = "ERROR: invalid checksum: %s\n" % vrf_o_id
-				self._vprint(0, 0, "%s\n" % "ERROR")
-				self._vprint(1, _max_verbose, vmsg)
+			if vrf_id != obj.id:
+				obj.v_error = "ERROR: invalid checksum: %s" % vrf_id
 				continue
-			self._vprint(0, _max_verbose, "OK\n")
+			obj.v_sha1 = True
+			
+			# All is OK
+			obj.v_all = True
 
 
 def read_file_x(filename, blob=False):
@@ -292,6 +369,7 @@ def process_repo(repo, mode):
 	# Execute requested mode
 	if mode == 'verify':
 		repo.verify_objects()
+		repo.print_objects()
 	elif mode == 'list':
 		repo.list_objects()
 	else:
