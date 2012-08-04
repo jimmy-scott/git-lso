@@ -116,8 +116,9 @@ class GitRepo(object):
 	def verify_objects(self):
 		"""List gathered objects"""
 		
+		dfmt = "  %-15s %-s\n"
 		vfmt = "  verify %-8s "
-		cfmt = "  compression:  %3s%%\n"
+		cfmt = "  compression:    %-3s\n"
 		_max_verbose = self._max_verbose
 		
 		if not self.objects:
@@ -141,6 +142,10 @@ class GitRepo(object):
 				continue
 			self._vprint(1, _max_verbose, "OK\n")
 			
+			# Show size of compressed object
+			obj_zdata_sz = len(obj_zdata)
+			self._vprint(3, _max_verbose, dfmt % ("zdata size:", obj_zdata_sz))
+			
 			# Verify zlib
 			self._vprint(1, _max_verbose, vfmt % "zlib:")
 			try:
@@ -152,11 +157,15 @@ class GitRepo(object):
 				continue
 			self._vprint(1, _max_verbose, "OK\n")
 			
+			# Show size of uncompressed object
+			obj_xdata_sz = len(obj_xdata)
+			self._vprint(3, _max_verbose, dfmt % ("xdata size:", obj_xdata_sz))
+			
 			# Show compression ratio = 100 * COMP / UNCOMP
 			if self.show_compression:
-				ratio = 100 * len(obj_zdata) / len(obj_xdata)
+				ratio = 100 * obj_zdata_sz / obj_xdata_sz
 				self._vprint(0, 0, "%3s%% " % ratio)
-				self._vprint(1, _max_verbose, cfmt % ratio)
+				self._vprint(1, _max_verbose, cfmt % (str(ratio) + "%"))
 			
 			# Verify format check 1
 			self._vprint(1, 1, vfmt % "fmtx:")
@@ -190,6 +199,9 @@ class GitRepo(object):
 				continue
 			self._vprint(2, _max_verbose, "OK\n")
 			
+			# Show object type
+			self._vprint(3, _max_verbose, dfmt % ("obj type:", obj_data_type))
+			
 			# Verify format check 4 / final format check
 			self._vprint(2, _max_verbose, vfmt % "fmt4:")
 			if not obj_data_len.isdigit():
@@ -198,6 +210,9 @@ class GitRepo(object):
 				self._vprint(1, _max_verbose, vmsg)
 				continue
 			self._vprint(1, _max_verbose, "OK\n")
+			
+			# Show object size
+			self._vprint(3, _max_verbose, dfmt % ("obj size:", obj_data_len))
 			
 			# Verify size
 			self._vprint(1, _max_verbose, vfmt % "size:")
