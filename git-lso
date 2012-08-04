@@ -113,8 +113,22 @@ class GitRepo(object):
 						#'o_relpath': o_dir + "/" + o_file
 					})
 	
-	def verify_objects(self):
+	def list_objects(self):
 		"""List gathered objects"""
+		
+		_max_verbose = self._max_verbose
+		
+		if not self.objects:
+			sys.stderr.write("No objects.\n")
+			return
+		
+		for obj in self.objects:
+			self._vprint(0, 0, "%s\n" % obj['o_id'])
+			self._vprint(1, _max_verbose, "id: %s\n" % obj['o_id'])
+			self._vprint(2, _max_verbose, "  path: %s\n" % obj['o_path'])
+	
+	def verify_objects(self):
+		"""List and verify gathered objects"""
 		
 		dfmt = "  %-15s %-s\n"
 		vfmt = "  verify %-8s "
@@ -262,8 +276,8 @@ def sysexit(msg, excode=70):
 	sys.exit(excode)
 
 
-def process_repo(repo):
-	"""TODO"""
+def process_repo(repo, mode):
+	"""Run the requested mode"""
 	
 	# Verify it looks like a valid repo
 	if not repo.verify():
@@ -274,26 +288,38 @@ def process_repo(repo):
 	
 	# Populate objects
 	repo.populate_objects()
-	repo.verify_objects()
+	
+	# Execute requested mode
+	if mode == 'verify':
+		repo.verify_objects()
+	elif mode == 'list':
+		repo.list_objects()
+	else:
+		assert False, "unhandled mode"
 
 
 def usage(errmsg=None):
 	if errmsg is not None:
 		sys.stderr.write("%s: %s\n" % (sys.argv[0], errmsg))
-	sys.stderr.write("usage: %s [-v] [-c] [--bare] [<git-repo-root>]\n\n"
+	sys.stderr.write(
+		"usage: %s [-v] [-c] [--bare] [<git-repo-root>]\n"
+		"       %s [-v] [-l] [--bare] [<git-repo-root>]\n\n"
 	 	"   --bare             Operate on a bare repository\n" 
 		"   -v, --verbose      Verbose, more -v flags increase the verbosity\n"
 		"   -c, --compression  Show compression ratio as a percentage\n"
-		% sys.argv[0])
+		"   -l, --list         Show a listing only, do not verify\n"
+		% (sys.argv[0], sys.argv[0]))
 	sys.exit(64)
 
 
 def main():
-	opts = "vch"
-	long_opts = ['help', 'bare', 'verbose', 'compression']
+	opts = "lvch"
+	long_opts = ['help', 'bare', 'verbose', 'compression', 'list']
 	bare = False
+	list_only = False
 	show_compression = False
 	verbose = 0
+	mode = 'verify'
 	
 	# Get options and arguments
 	try:
@@ -309,10 +335,17 @@ def main():
 			verbose += 1
 		elif opt in ('-c', '--compression'):
 			show_compression = True
+		elif opt in ('-l', '--list'):
+			list_only = True
+			mode = 'list'
 		elif opt in ('-h', '--help'):
 			usage()
 		else:
 			assert False, "unhandled option"
+	
+	# Check incompatible options
+	if list_only and show_compression:
+		usage("option -c and -l cannot be used together")
 	
 	# Process arguments
 	if args:
@@ -328,7 +361,7 @@ def main():
 	repo = GitRepo(repo, bare)
 	repo.set_verbose(verbose)
 	repo.set_show_compression(show_compression)
-	process_repo(repo)
+	process_repo(repo, mode)
 
 
 if __name__ == "__main__":
