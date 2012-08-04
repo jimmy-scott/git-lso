@@ -14,9 +14,12 @@ import getopt
 class GitRepo(object):
 	"""Holds git repository data"""
 	
+	_max_verbose = 3
+	
 	def __init__(self, repo, bare=False):
 		"""Init variables"""
 		
+		self.verbose = 0
 		self.error = None
 		self.repo = repo
 		self.bare = bare
@@ -30,10 +33,24 @@ class GitRepo(object):
 		
 		self.objects_root = os.path.join(self.git_dir, "objects")
 	
+	def _vprint(self, verbose_min, verbose_max, vrb_msg):
+		"""Verbose aware print"""
+		
+		if self.verbose >= verbose_min and self.verbose <= verbose_max:
+			sys.stdout.write(vrb_msg)
+	
 	def is_bare(self):
 		"""Return self.bare"""
 		
 		return self.bare
+	
+	def set_verbose(self, verbose_level):
+		"""Set verbose level"""
+		
+		if verbose_level < self._max_verbose:
+			self.verbose = verbose_level
+		else:
+			self.verbose = self._max_verbose
 	
 	def get_error(self):
 		"""Return self.error"""
@@ -93,73 +110,104 @@ class GitRepo(object):
 	def verify_objects(self):
 		"""List gathered objects"""
 		
+		vfmt = "  verify %-8s "
+		_max_verbose = self._max_verbose
+		
 		if not self.objects:
 			sys.stderr.write("No objects.\n")
 			return
 		
 		for obj in self.objects:
-			print "file: %s" % obj['o_path']
-			print "\tid: %s" % obj['o_id']
+			# Print object id and object path
+			self._vprint(0, 0, "%s " % obj['o_id'])
+			self._vprint(1, _max_verbose, "id: %s\n" % obj['o_id'])
+			self._vprint(3, _max_verbose, "path: %s\n" % obj['o_path'])
 			
+			# Verify read
+			self._vprint(1, _max_verbose, vfmt % "read:")
 			try:
 				obj_zdata = read_file_x(obj['o_path'], blob=True)
 			except IOError as e:
-				print "\tERROR: IOError: [Errno %s] %s" % (e.errno, e.strerror)
+				vmsg = "ERROR: IOError: [Errno %s] %s\n" % (e.errno, e.strerror)
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(1, _max_verbose, "OK\n")
 			
-			print "\tverify(read): OK"
-			
+			# Verify zlib
+			self._vprint(1, _max_verbose, vfmt % "zlib:")
 			try:
 				obj_xdata = zlib.decompress(obj_zdata)
 			except zlib.error:
-				print "\tERROR: zlib decompress failed\n\n"
+				vmsg = "ERROR: zlib decompress failed\n"
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(1, _max_verbose, "OK\n")
 			
-			print "\tverify(zlib): OK"
-			
+			# Verify format check 1
+			self._vprint(1, 1, vfmt % "fmtx:")
+			self._vprint(2, _max_verbose, vfmt % "fmt1:")
 			try:
 				obj_hdr, obj_data = obj_xdata.split("\x00", 1)
 			except ValueError:
-				print "\tERROR: failed to extract header\n\n"
+				vmsg = "ERROR: failed to extract header\n"
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(2, _max_verbose, "OK\n")
 			
-			print "\tverify(fmt1): OK"
-			
+			# Verify format check 2
+			self._vprint(2, _max_verbose, vfmt % "fmt2:")
 			try:
 				obj_data_type, obj_data_len = obj_hdr.split(" ")
 			except ValueError:
-				print "\tERROR: failed to split header\n\n"
+				vmsg = "ERROR: failed to split header\n"
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(2, _max_verbose, "OK\n")
 			
-			print "\tverify(fmt2): OK"
-			
+			# Verify format check 3
+			self._vprint(2, _max_verbose, vfmt % "fmt3:")
 			if not obj_data_type in ('blob', 'tree', 'commit', 'tag'):
-				print "\tERROR: invalid data type: %s\n\n" % obj_data_type
+				vmsg = "ERROR: invalid data type: %s\n" % obj_data_type
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(2, _max_verbose, "OK\n")
 			
-			print "\tverify(fmt3): OK"
-			
+			# Verify format check 4 / final format check
+			self._vprint(2, _max_verbose, vfmt % "fmt4:")
 			if not obj_data_len.isdigit():
-				print "\tERROR: invalid data length: %s\n\n" % obj_data_len
+				vmsg = "ERROR: invalid data length: %s\n" % obj_data_len
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(1, _max_verbose, "OK\n")
 			
-			print "\tverify(fmt4): OK"
-			
+			# Verify size
+			self._vprint(1, _max_verbose, vfmt % "size:")
 			if int(obj_data_len) != len(obj_data):
-				print "\tERROR: data length mismatch: %s vs %s\n\n" % \
+				vmsg = "ERROR: data length mismatch: %s vs %s\n" % \
 					(int(obj_data_len), len(obj_data))
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
+			self._vprint(1, _max_verbose, "OK\n")
 			
-			print "\tverify(size): OK"
-			
+			# Calculate checksum
 			vrf_o_id = sha.sha(obj_data_type + " " + obj_data_len + 
 				"\x00" + obj_data).hexdigest()
 			
+			# Verify checksum
+			self._vprint(1, _max_verbose, vfmt % "sha1:")
 			if vrf_o_id != obj['o_id']:
-				print "\tERROR: invalid checksum: %s\n\n" % vrf_o_id
+				vmsg = "ERROR: invalid checksum: %s\n" % vrf_o_id
+				self._vprint(0, 0, "%s\n" % "ERROR")
+				self._vprint(1, _max_verbose, vmsg)
 				continue
-			
-			print "\tverify(sha1): OK"
+			self._vprint(0, _max_verbose, "OK\n")
 
 
 def read_file_x(filename, blob=False):
@@ -210,9 +258,10 @@ def usage(errmsg=None):
 
 
 def main():
-	opts = "h"
-	long_opts = ['help', 'bare']
+	opts = "vh"
+	long_opts = ['help', 'bare', 'verbose']
 	bare = False
+	verbose = 0
 	
 	# Get options and arguments
 	try:
@@ -224,6 +273,8 @@ def main():
 	for opt, arg in opts:
 		if opt == "--bare":
 			bare = True
+		elif opt in ('-v', '--verbose'):
+			verbose += 1
 		elif opt in ('-h', '--help'):
 			usage()
 		else:
@@ -241,6 +292,7 @@ def main():
 	
 	# Create object and process repo
 	repo = GitRepo(repo, bare)
+	repo.set_verbose(verbose)
 	process_repo(repo)
 
 
