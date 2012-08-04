@@ -20,6 +20,7 @@ class GitRepo(object):
 		"""Init variables"""
 		
 		self.verbose = 0
+		self.show_compression = False
 		self.error = None
 		self.repo = repo
 		self.bare = bare
@@ -51,6 +52,11 @@ class GitRepo(object):
 			self.verbose = verbose_level
 		else:
 			self.verbose = self._max_verbose
+	
+	def set_show_compression(self, show_compression):
+		"""Set to show compression"""
+		
+		self.show_compression = show_compression
 	
 	def get_error(self):
 		"""Return self.error"""
@@ -111,6 +117,7 @@ class GitRepo(object):
 		"""List gathered objects"""
 		
 		vfmt = "  verify %-8s "
+		cfmt = "  compression:  %3s%%\n"
 		_max_verbose = self._max_verbose
 		
 		if not self.objects:
@@ -144,6 +151,12 @@ class GitRepo(object):
 				self._vprint(1, _max_verbose, vmsg)
 				continue
 			self._vprint(1, _max_verbose, "OK\n")
+			
+			# Show compression ratio = 100 * COMP / UNCOMP
+			if self.show_compression:
+				ratio = 100 * len(obj_zdata) / len(obj_xdata)
+				self._vprint(0, 0, "%3s%% " % ratio)
+				self._vprint(1, _max_verbose, cfmt % ratio)
 			
 			# Verify format check 1
 			self._vprint(1, 1, vfmt % "fmtx:")
@@ -252,17 +265,19 @@ def process_repo(repo):
 def usage(errmsg=None):
 	if errmsg is not None:
 		sys.stderr.write("%s: %s\n" % (sys.argv[0], errmsg))
-	sys.stderr.write("usage: %s [-v] [--bare] [<git-repo-root>]\n\n"
+	sys.stderr.write("usage: %s [-v] [-c] [--bare] [<git-repo-root>]\n\n"
 	 	"   --bare             Operate on a bare repository\n" 
 		"   -v, --verbose      Verbose, more -v flags increase the verbosity\n"
+		"   -c, --compression  Show compression ratio as a percentage\n"
 		% sys.argv[0])
 	sys.exit(64)
 
 
 def main():
-	opts = "vh"
-	long_opts = ['help', 'bare', 'verbose']
+	opts = "vch"
+	long_opts = ['help', 'bare', 'verbose', 'compression']
 	bare = False
+	show_compression = False
 	verbose = 0
 	
 	# Get options and arguments
@@ -277,6 +292,8 @@ def main():
 			bare = True
 		elif opt in ('-v', '--verbose'):
 			verbose += 1
+		elif opt in ('-c', '--compression'):
+			show_compression = True
 		elif opt in ('-h', '--help'):
 			usage()
 		else:
@@ -295,6 +312,7 @@ def main():
 	# Create object and process repo
 	repo = GitRepo(repo, bare)
 	repo.set_verbose(verbose)
+	repo.set_show_compression(show_compression)
 	process_repo(repo)
 
 
