@@ -252,8 +252,10 @@ def process_repo(repo):
 def usage(errmsg=None):
 	if errmsg is not None:
 		sys.stderr.write("%s: %s\n" % (sys.argv[0], errmsg))
-	sys.stderr.write("usage: %s [--bare] [<git-repo-root>]\n" %
-		sys.argv[0])
+	sys.stderr.write("usage: %s [-v] [--bare] [<git-repo-root>]\n\n"
+	 	"   --bare             Operate on a bare repository\n" 
+		"   -v, --verbose      Verbose, more -v flags increase the verbosity\n"
+		% sys.argv[0])
 	sys.exit(64)
 
 
