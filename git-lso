@@ -216,9 +216,7 @@ class GitRepo(object):
 			c_ratio = None
 			
 			# Calculate compression if possible
-			if self.show_compression and \
-				(obj.z_data_size is not None) and\
-				(obj.x_data_size is not None):
+			if self.show_compression and obj.z_data_size and obj.x_data_size:
 				c_ratio = str(100 * obj.z_data_size / obj.x_data_size) + "%"
 			
 			# Shortcut for non-verbose mode
