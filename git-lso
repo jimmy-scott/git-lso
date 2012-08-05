@@ -204,9 +204,12 @@ class GitRepoValidator(object):
 	def print_objects(self):
 		"""Print verified objects"""
 		
-		sfmt = "  %-15s %-s\n"
-		vfmt = "  verify %-8s "
 		_max_verbose = self._max_verbose
+		
+		# Output formatting
+		sfmt = "  %-15s %11s\n"		# Aligned 'show'
+		vfmt = "  verify %-8s %11s\n"	# Aligned 'verify'
+		ffmt = "  %s %s\n"		# Full/Maximized 'show'
 		
 		if not self.objects:
 			sys.stderr.write("No objects.\n")
@@ -243,18 +246,18 @@ class GitRepoValidator(object):
 			
 			# Show steps
 			s_steps = (
-				(obj.path, "path", 3, _max_verbose),
-				(obj.z_data_size, "zdata size", 3, _max_verbose),
-				(obj.x_data_size, "xdata size", 3, _max_verbose),
-				(c_ratio, "compression", 1, _max_verbose),
-				(obj.o_data_type, "odata type", 3, _max_verbose),
-				(obj.o_data_size, "odata size", 3, _max_verbose),
+				(obj.path, "path", 3, _max_verbose, ffmt),
+				(obj.z_data_size, "zdata size", 3, _max_verbose, sfmt),
+				(obj.x_data_size, "xdata size", 3, _max_verbose, sfmt),
+				(c_ratio, "compression", 1, _max_verbose, sfmt),
+				(obj.o_data_type, "odata type", 3, _max_verbose, sfmt),
+				(obj.o_data_size, "odata size", 3, _max_verbose, sfmt),
 			)
 			
 			# Print step data if needed
-			for s_opt, s_name, s_min, s_max in s_steps:
+			for s_opt, s_name, s_min, s_max, s_fmt in s_steps:
 				if s_opt is not None:
-					self._vprint(s_min, s_max, sfmt %
+					self._vprint(s_min, s_max, s_fmt %
 						(s_name + ":", s_opt))
 			
 			# Verify steps
@@ -272,12 +275,12 @@ class GitRepoValidator(object):
 			
 			# Print step status if needed
 			for v_opt, v_name, v_min, v_max in v_steps:
-				self._vprint(v_min, v_max, vfmt % (v_name + ":"))
 				if v_opt:
-					self._vprint(v_min, v_max, "[OK]\n")
+					self._vprint(v_min, v_max, vfmt % (v_name + ":", "[OK]"))
 					continue
 				else:
-					self._vprint(1, _max_verbose, "[EE] " + obj.v_error + "\n")
+					self._vprint(1, _max_verbose, vfmt % (v_name + ":", "[EE]"))
+					self._vprint(1, _max_verbose, ffmt % ("ERROR:", obj.v_error))
 					break
 	
 	

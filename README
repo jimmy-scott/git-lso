@@ -51,6 +51,10 @@ This is an overview of all strange names and fields you see:
   verify fmt4:    object size is a number
   verify size:    object size from header matches the actual size
   verify sha1:    checksum of the object matches the id
+  ERROR:          error message of the failed verify step
+
+Verify status is either [OK] or [EE].
+The 'ERROR' field will only be shown in case there was an error.
 
 Summary has similar naming:
 
