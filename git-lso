@@ -224,17 +224,17 @@ class GitRepo(object):
 			# Shortcut for non-verbose mode
 			if self.verbose == 0:
 				# Print id
-				self._vprint(0, 0, "%s " % obj.id)
+				print "%s " % obj.id,
 				
 				# Print compression
 				if c_ratio is not None:
-					self._vprint(0, 0, "%4s " % c_ratio)
+					print "%4s " % c_ratio,
 				
 				# Print status
 				if obj.v_all:
-					self._vprint(0, 0, "OK\n")
+					print "OK"
 				else:
-					self._vprint(0, 0, "ERROR\n")
+					print "ERROR"
 				continue
 			
 			### Only verbose mode passes the section below
