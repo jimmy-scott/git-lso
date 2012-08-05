@@ -26,6 +26,9 @@ List and check with increased verbosity:
 	$ git-lso -vv
 	$ git-lso -vvv
 
+Verify and show a verbose summary (check it out!):
+	$ git-lso -s -v
+
 List only, do not verify:
 	$ git-lso -l
 

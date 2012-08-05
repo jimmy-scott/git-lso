@@ -177,10 +177,20 @@ class GitRepoValidator(object):
 		s_line = "-" * width
 		d_line = "=" * width
 		
+		# Verbose header data
+		vheader = ("ok?", "type", "id", "zdata", "xdata", "odata", "ratio")
+		
+		# Verbose header format
+		vfmt = " %3s %7s" + field * 5
+		
 		# Summary data
 		c_ratio = None
 		o_ok = o_error = 0
 		z_data_size = x_data_size = o_data_size = 0
+		
+		if self.verbose:
+			print vfmt % vheader
+			print s_line
 		
 		# Gather data from objects
 		for obj in self.objects:
@@ -191,6 +201,30 @@ class GitRepoValidator(object):
 				if obj.o_data_size: o_data_size += obj.o_data_size
 			else:
 				o_error += 1
+			
+			if self.verbose:
+				v_c_ratio = None
+				
+				# Calculate compression if possible
+				if obj.z_data_size and obj.x_data_size:
+					v_c_ratio = str(100 * obj.z_data_size / obj.x_data_size) + "%"
+				
+				# Build verbose data
+				v_data = (
+					"[Y]" if obj.v_all else "[N]",
+					obj.o_data_type or "N/A",
+					obj.id[:10],
+					obj.z_data_size or "N/A",
+					obj.x_data_size or "N/A",
+					obj.o_data_size or "N/A",
+					v_c_ratio or "N/A"
+				)
+				
+				# Print verbose data
+				print vfmt % v_data
+		
+		if self.verbose:
+			print d_line
 		
 		# Calculate compression ratio
 		if z_data_size and x_data_size:
