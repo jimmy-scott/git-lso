@@ -1,0 +1,34 @@
+git-lso: list and verify loose objects
+--------------------------------------
+
+Lists and verifies all loose objects found in '.git/objects/??/..'.
+
+I wrote this just for fun, so I didn't really bother checking whether
+other tools cover the same functionality or ...
+
+List and verify all loose objects in repo '/srv/git/foo':
+	$ git-lso /srv/git/foo
+
+List and verify all loose objects in bare repo '/srv/git/foo.git':
+	$ git-lso --bare /srv/git/foo.git
+
+Note: You can omit the repository name if your current working directory
+      is the root of the repository you want to verify.
+
+List, verify and show the compression ratio (100 * compr / uncompr):
+	$ git-lso -c
+
+Verify and show a summary instead of listing:
+	$ git-lso -s
+
+List and check with increased verbosity:
+	$ git-lso -v
+	$ git-lso -vv
+	$ git-lso -vvv
+
+List only, do not verify:
+	$ git-lso -l
+
+Show version:
+	$ git-lso -V
+
