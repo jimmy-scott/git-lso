@@ -159,6 +159,47 @@ class GitRepo(object):
 			self._vprint(1, _max_verbose, "id: %s\n" % obj.id)
 			self._vprint(2, _max_verbose, "  path: %s\n" % obj.path)
 	
+	def print_summary(self):
+		"""Print summary of verified objects"""
+		
+		if not self.objects:
+			sys.stderr.write("No objects.\n")
+			return
+		
+		# Summary header data
+		header = ("ok", "error", "zdata", "xdata", "hdata", "ratio")
+		
+		# Summary header format
+		field = " %11s"
+		fmt = field * len(header)
+		width = len(field % "") * len(header)
+		s_line = "-" * width
+		d_line = "=" * width
+		
+		# Summary data
+		c_ratio = None
+		o_ok = o_error = 0
+		z_data_size = x_data_size = h_data_size = 0
+		
+		# Gather data from objects
+		for obj in self.objects:
+			if obj.v_all:
+				o_ok += 1
+				if obj.z_data_size: z_data_size += obj.z_data_size
+				if obj.x_data_size: x_data_size += obj.x_data_size
+				if obj.h_data_size: h_data_size += obj.h_data_size
+			else:
+				o_error += 1
+		
+		# Calculate compression ratio
+		if z_data_size and x_data_size:
+			c_ratio = str(100 * z_data_size / x_data_size) + "%"
+		
+		# Print summary
+		print fmt % header
+		print s_line
+		print fmt % (o_ok, o_error, z_data_size, x_data_size, h_data_size, c_ratio)
+	
 	def print_objects(self):
 		"""Print verified objects"""
 		
