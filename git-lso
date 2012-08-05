@@ -10,6 +10,7 @@ import sha
 import zlib
 import getopt
 
+version = "git-lso version 0.1";
 
 class GitLooseObject(object):
 	"""Holds git object data"""
@@ -422,10 +423,15 @@ def usage(errmsg=None):
 	sys.exit(64)
 
 
+def show_version():
+	print version
+	sys.exit(0)
+
+
 def main():
-	opts = "lvchs"
+	opts = "lvchsV"
 	long_opts = ['help', 'bare', 'verbose', 'compression', 'list'
-		'summary']
+		'summary', 'version']
 	bare = False
 	list_only = False
 	show_compression = False
@@ -453,6 +459,8 @@ def main():
 		elif opt in ('-l', '--list'):
 			list_only = True
 			mode = 'list'
+		elif opt in ('-V', '--version'):
+			show_version()
 		elif opt in ('-h', '--help'):
 			usage()
 		else:
