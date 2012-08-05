@@ -32,3 +32,30 @@ List only, do not verify:
 Show version:
 	$ git-lso -V
 
+
+Summary and verbose output explained
+------------------------------------
+
+This is an overview of all strange names and fields you see:
+
+  zdata size:     size of the compressed object
+  xdata size:     size of the uncompressed object
+  compression     compression ratio of the compressed data
+  odata type:     type of the object
+  odata size:     size of the object without the header
+  verify read:    file could be opened and read
+  verify zlib:    file was able to decompress
+  verify fmt1:    file contained a null byte (splits header)
+  verify fmt2:    header contained a space (splits type and size)
+  verify fmt3:    object type is a known object type
+  verify fmt4:    object size is a number
+  verify size:    object size from header matches the actual size
+  verify sha1:    checksum of the object matches the id
+
+Summary has similar naming:
+
+  zdata:   size of the compressed object
+  xdata:   size of the uncompressed object
+  odata:   size of the object without the header
+  ratio:   compression ratio of the compressed data
+
