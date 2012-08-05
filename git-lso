@@ -25,8 +25,8 @@ class GitLooseObject(object):
 	x_data_size = None
 	
 	# Header data
-	h_data_type = None
-	h_data_size = None
+	o_data_type = None
+	o_data_size = None
 	
 	# Verification error
 	v_error = None
@@ -168,7 +168,7 @@ class GitRepoValidator(object):
 			return
 		
 		# Summary header data
-		header = ("ok", "error", "zdata", "xdata", "hdata", "ratio")
+		header = ("ok", "error", "zdata", "xdata", "odata", "ratio")
 		
 		# Summary header format
 		field = " %11s"
@@ -180,7 +180,7 @@ class GitRepoValidator(object):
 		# Summary data
 		c_ratio = None
 		o_ok = o_error = 0
-		z_data_size = x_data_size = h_data_size = 0
+		z_data_size = x_data_size = o_data_size = 0
 		
 		# Gather data from objects
 		for obj in self.objects:
@@ -188,7 +188,7 @@ class GitRepoValidator(object):
 				o_ok += 1
 				if obj.z_data_size: z_data_size += obj.z_data_size
 				if obj.x_data_size: x_data_size += obj.x_data_size
-				if obj.h_data_size: h_data_size += obj.h_data_size
+				if obj.o_data_size: o_data_size += obj.o_data_size
 			else:
 				o_error += 1
 		
@@ -199,7 +199,7 @@ class GitRepoValidator(object):
 		# Print summary
 		print fmt % header
 		print s_line
-		print fmt % (o_ok, o_error, z_data_size, x_data_size, h_data_size, c_ratio)
+		print fmt % (o_ok, o_error, z_data_size, x_data_size, o_data_size, c_ratio)
 	
 	def print_objects(self):
 		"""Print verified objects"""
@@ -247,8 +247,8 @@ class GitRepoValidator(object):
 				(obj.z_data_size, "zdata size", 3, _max_verbose),
 				(obj.x_data_size, "xdata size", 3, _max_verbose),
 				(c_ratio, "compression", 1, _max_verbose),
-				(obj.h_data_type, "obj type", 3, _max_verbose),
-				(obj.h_data_size, "obj size", 3, _max_verbose),
+				(obj.o_data_type, "odata type", 3, _max_verbose),
+				(obj.o_data_size, "odata size", 3, _max_verbose),
 			)
 			
 			# Print step data if needed
@@ -328,14 +328,14 @@ class GitRepoValidator(object):
 				obj.v_error = "invalid data type: %s" % obj_data_type
 				continue
 			obj.v_fmt3 = True
-			obj.h_data_type = obj_data_type
+			obj.o_data_type = obj_data_type
 			
 			# Verify format check 4
 			if not obj_data_size.isdigit():
 				obj.v_error = "invalid data size: %s" % obj_data_len
 				continue
 			obj.v_fmt4 = True
-			obj.h_data_size = int(obj_data_size)
+			obj.o_data_size = int(obj_data_size)
 			
 			# Verify size
 			if int(obj_data_size) != len(obj_data):
