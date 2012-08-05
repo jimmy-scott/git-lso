@@ -398,6 +398,9 @@ def process_repo(repo, mode):
 	if mode == 'verify':
 		repo.verify_objects()
 		repo.print_objects()
+	elif mode == 'summary':
+		repo.verify_objects()
+		repo.print_summary()
 	elif mode == 'list':
 		repo.list_objects()
 	else:
@@ -408,22 +411,25 @@ def usage(errmsg=None):
 	if errmsg is not None:
 		sys.stderr.write("%s: %s\n" % (sys.argv[0], errmsg))
 	sys.stderr.write(
-		"usage: %s [-v] [-c] [--bare] [<git-repo-root>]\n"
-		"       %s [-v] [-l] [--bare] [<git-repo-root>]\n\n"
+		"usage: %s [-vcs] [--bare] [<git-repo-root>]\n"
+		"       %s [-vl] [--bare] [<git-repo-root>]\n\n"
 	 	"   --bare             Operate on a bare repository\n" 
 		"   -v, --verbose      Verbose, more -v flags increase the verbosity\n"
 		"   -c, --compression  Show compression ratio as a percentage\n"
+		"   -s, --summary      Show a summary after verification, implies -c\n"
 		"   -l, --list         Show a listing only, do not verify\n"
 		% (sys.argv[0], sys.argv[0]))
 	sys.exit(64)
 
 
 def main():
-	opts = "lvch"
-	long_opts = ['help', 'bare', 'verbose', 'compression', 'list']
+	opts = "lvchs"
+	long_opts = ['help', 'bare', 'verbose', 'compression', 'list'
+		'summary']
 	bare = False
 	list_only = False
 	show_compression = False
+	show_summary = False
 	verbose = 0
 	mode = 'verify'
 	
@@ -441,6 +447,9 @@ def main():
 			verbose += 1
 		elif opt in ('-c', '--compression'):
 			show_compression = True
+		elif opt in ('-s', '--summary'):
+			show_summary = True
+			mode = 'summary'
 		elif opt in ('-l', '--list'):
 			list_only = True
 			mode = 'list'
@@ -452,6 +461,8 @@ def main():
 	# Check incompatible options
 	if list_only and show_compression:
 		usage("option -c and -l cannot be used together")
+	if list_only and show_summary:
+		usage("option -l and -s cannot be used together")
 	
 	# Process arguments
 	if args:
