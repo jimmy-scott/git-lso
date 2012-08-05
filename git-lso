@@ -43,7 +43,7 @@ class GitLooseObject(object):
 		self.path = path
 
 
-class GitRepo(object):
+class GitRepoValidator(object):
 	"""Holds git repository data"""
 	
 	_max_verbose = 3
@@ -483,7 +483,7 @@ def main():
 		usage("too many arguments: %s" % str.join(', ', args))
 	
 	# Create object and process repo
-	repo = GitRepo(repo, bare)
+	repo = GitRepoValidator(repo, bare)
 	repo.set_verbose(verbose)
 	repo.set_show_compression(show_compression)
 	process_repo(repo, mode)
