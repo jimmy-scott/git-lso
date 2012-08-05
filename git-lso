@@ -1,6 +1,10 @@
 #!/usr/bin/python
 
 ######
+# git-lso: list and verify loose objects
+#
+# version: 0.1 created on 05/08/2012 (DD/MM/YYYY)
+###
 #
 # Copyright (C) 2012 Jimmy Scott #jimmy#inet-solutions#be#. Belgium.
 # All rights reserved.
